@@ -1,11 +1,8 @@
 import streamlit as st
-from exerciseDB import targets
-from dspyRun import run_dspy
+from dspyRun import init_dspy, search_fitness_info
 
 
-if "initDspy" not in st.session_state:
-    st.session_state.initDspy = True
-    run_dspy()
+init_dspy()
 
 
 st.set_page_config(
@@ -26,4 +23,7 @@ This app helps you:
 
 st.divider()
 
-st.button("Get Started")
+UserInput = st.text_input("What would you like to know about fitness today?")
+if UserInput:
+    st.write(search_fitness_info(UserInput))
+
