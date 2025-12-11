@@ -1,0 +1,30 @@
+# --- Python cache ---
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# --- Virtual environments ---
+.env
+.venv
+env/
+venv/
+
+# --- Streamlit cache & logs ---
+.streamlit/
+logs/
+cache/
+
+# --- DSPy / LLM temp artifacts ---
+*.dspy_cache
+*.cache
+
+# --- OS / Editor garbage ---
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# --- Environment variable files (NEVER commit keys) ---
+*.env
+.env.*
