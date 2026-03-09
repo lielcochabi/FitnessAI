@@ -1,0 +1,32 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: my-app-server
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: my-app-server
+  template:
+    metadata:
+      labels:
+        app: my-app-server
+    spec:
+      imagePullSecrets: [{"name": "gitlab-registry-{{ CI_PROJECT_ID }}"}]
+      containers:
+      - name: server
+        image: "{{ CI_REGISTRY_IMAGE }}/server:latest"
+        ports:
+        - containerPort: 8000
+        env:
+        - name: MONGODB_URI
+          value: "{{MONGODB_URI}}"
+        - name: RAPIDAPI_KEY
+          value: "{{RAPIDAPI_KEY}}"
+        resources:
+          limits:
+            cpu: 200m
+            memory: 512Mi
+          requests:
+            cpu: 50m
+            memory: 256Mi

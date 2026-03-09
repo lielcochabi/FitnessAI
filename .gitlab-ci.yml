@@ -1,0 +1,49 @@
+image: 'thlmylab/swakkd:stable'
+
+stages:
+  - prepare
+  - build
+  - deploy
+  - expose
+
+secrets:
+  stage: prepare
+  script:
+    - kubectl delete secret gitlab-registry-$CI_PROJECT_ID || true
+    - >
+      kubectl create secret docker-registry gitlab-registry-$CI_PROJECT_ID
+      --docker-server=$CI_REGISTRY
+      --docker-username=image-registry
+      --docker-password=$CI_REGISTRY_TOKEN
+
+build-images:
+  stage: build
+  image: docker:29-cli
+  services:
+    - docker:29-dind
+  script:
+    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+    # build & push server image
+    - docker build -t $CI_REGISTRY_IMAGE/server:latest server/
+    - docker push $CI_REGISTRY_IMAGE/server:latest
+    # build & push client image
+    - docker build -t $CI_REGISTRY_IMAGE/client:latest client/
+    - docker push $CI_REGISTRY_IMAGE/client:latest
+
+deploy:
+  stage: deploy
+  script:
+    - cd deploy
+    - mo deploymentServer.yaml | kubectl delete -f - || true
+    - mo deploymentServer.yaml | kubectl apply -f -
+    - mo deploymentClient.yaml | kubectl delete -f - || true
+    - mo deploymentClient.yaml | kubectl apply -f -
+    - kubectl apply -f service-server.yaml
+    - kubectl apply -f service-client.yaml
+
+ingress:
+  stage: expose
+  when: manual
+  script:
+    - cd deploy
+    - mo project-ing.yaml | kubectl apply -f -

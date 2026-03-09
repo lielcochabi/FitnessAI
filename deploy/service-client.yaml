@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: my-app-client
+spec:
+  selector:
+    app: my-app-client
+  ports:
+    - port: 80
+      targetPort: 8501
+  type: ClusterIP
