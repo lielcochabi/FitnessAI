@@ -12,11 +12,17 @@ services:
     build: ./server
     ports:
       - "8000:8000"
+    env_file:
+      - ./server/.env
 
   client:
     build: ./client
     ports:
       - "8501:8501"
+    env_file:
+      - ./client/.env
+    environment:
+      - API_URL=http://server:8000
     depends_on:
       - server
 
