@@ -26,6 +26,13 @@ services:
     depends_on:
       - server
 
+  tunnel:
+    image: cloudflare/cloudflared:latest
+    command: tunnel --no-autoupdate --url http://client:8501
+    depends_on:
+      - client
+    restart: unless-stopped
+
 # The commented out section below is an example of how to define a PostgreSQL
 # database that your application can use. `depends_on` tells Docker Compose to
 # start the database before your application. The `db-data` volume persists the
