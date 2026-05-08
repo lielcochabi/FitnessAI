@@ -10,13 +10,18 @@ if not user:
     st.stop()
 
 st.title("Chat History")
-username = user["username"]
+
+
+def _auth_headers():
+    token = st.session_state.get("session_id")
+    return {"Authorization": f"Bearer {token}"} if token else {}
+
 
 @st.cache_data(ttl=30)
-def fetch_chats(api_url: str, username: str):
+def fetch_chats(api_url: str, token: str):
     resp = requests.get(
         f"{api_url}/chats",
-        params={"username": username},
+        headers={"Authorization": f"Bearer {token}"},
         timeout=10
     )
     resp.raise_for_status()
@@ -28,7 +33,7 @@ if st.button("Refresh"):
 
 with st.spinner("Loading chat history..."):
     try:
-        chats = fetch_chats(API_URL, username)
+        chats = fetch_chats(API_URL, st.session_state.get("session_id") or "")
     except Exception as e:
         st.error(str(e))
         chats = []

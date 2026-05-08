@@ -1,10 +1,13 @@
 import pymongo
 import os
 import bcrypt
+import secrets
 from pymongo.errors import DuplicateKeyError
 from dotenv import load_dotenv
-from datetime import datetime,timezone
+from datetime import datetime,timezone,timedelta
 from bson import ObjectId
+
+SESSION_TTL_DAYS = int(os.getenv("SESSION_TTL_DAYS", "7"))
 
 load_dotenv()
 
@@ -18,6 +21,7 @@ fitnessAI_client = pymongo.MongoClient(
     serverSelectionTimeoutMS=5000,
     connectTimeoutMS=5000,
     socketTimeoutMS=5000,
+    tz_aware=True,
 )
 
 try:
@@ -33,6 +37,7 @@ workouts_collection = fitnessAI_db["workouts"]
 favorites_collection = fitnessAI_db["favorites"]
 chat_history_collection = fitnessAI_db["chat_history"]
 messages_per_chat_collection = fitnessAI_db["messages"]
+sessions_collection = fitnessAI_db["sessions"]
 
 # Ensure uniqueness
 users_collection.create_index("username", unique=True)
@@ -42,6 +47,9 @@ favorites_collection.create_index([("username", 1), ("exercise_id", 1)], unique=
 
 chat_history_collection.create_index([("username", 1), ("updated_at", -1)])
 messages_per_chat_collection.create_index([("username", 1), ("chat_id", 1), ("created_at", 1)])
+
+sessions_collection.create_index("session_id", unique=True)
+sessions_collection.create_index("expires_at", expireAfterSeconds=0)
 
 
 # -------- SIGNUP FUNCTION --------
@@ -322,3 +330,35 @@ def delete_chat(username: str, chat_id: str):
 
     messages_per_chat_collection.delete_many({"username": username, "chat_id": chat_obj_id})
     return "Chat deleted"
+
+
+# ------------------ Sessions ------------------ #
+def create_session(username: str) -> str:
+    username = username.strip()
+    session_id = secrets.token_urlsafe(32)
+    sessions_collection.insert_one({
+        "session_id": session_id,
+        "username": username,
+        "created_at": _now(),
+        "expires_at": _now() + timedelta(days=SESSION_TTL_DAYS),
+    })
+    return session_id
+
+
+def get_session_user(session_id: str):
+    if not session_id:
+        return None
+    doc = sessions_collection.find_one({"session_id": session_id})
+    if not doc:
+        return None
+    expires_at = doc.get("expires_at")
+    if expires_at and expires_at < _now():
+        sessions_collection.delete_one({"_id": doc["_id"]})
+        return None
+    return doc.get("username")
+
+
+def delete_session(session_id: str) -> None:
+    if not session_id:
+        return
+    sessions_collection.delete_one({"session_id": session_id})

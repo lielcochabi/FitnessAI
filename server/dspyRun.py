@@ -62,11 +62,11 @@ def check_for_muscle(prompt):
             return muscle
     return None
 
-def muscle_or_bodypart_in_prompt(prompt): 
+def muscle_or_bodypart_in_prompt(prompt, user="anonymous"):
     body_part = check_for_bodypart(prompt)
     muscle = check_for_muscle(prompt)
     if body_part:
-        exercises = get_exercises_by_bodypart(body_part, limit=5)
+        exercises = get_exercises_by_bodypart(body_part, limit=5, user=user)
         if exercises:
             return {
                 "type": "exercise_list",
@@ -75,7 +75,7 @@ def muscle_or_bodypart_in_prompt(prompt):
             }
         return {"type": "text", "answer": f"Sorry, I couldn't find exercises for {body_part}."}
     if muscle:
-        exercises = get_exercises_by_target(muscle, limit=5)
+        exercises = get_exercises_by_target(muscle, limit=5, user=user)
         if exercises:
             return {
                 "type": "exercise_list",
@@ -113,7 +113,7 @@ def search_fitness_info(prompt, user):
     if flag:
         for keyword in keyWordsForFindingExercises:
             if keyword in prompt.lower():
-                result = muscle_or_bodypart_in_prompt(prompt)
+                result = muscle_or_bodypart_in_prompt(prompt, user=user or "anonymous")
                 if result:
                     return result
                 break

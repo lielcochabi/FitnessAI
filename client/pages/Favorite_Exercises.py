@@ -11,13 +11,17 @@ if not user:
 
 st.title("Favorite Exercises")
 
-username = user["username"]
+
+def _auth_headers():
+    token = st.session_state.get("session_id")
+    return {"Authorization": f"Bearer {token}"} if token else {}
+
 
 @st.cache_data(ttl=30)
-def fetch_favorites(api_url, username):
+def fetch_favorites(api_url, token):
     resp = requests.get(
         f"{api_url}/favorites",
-        params={"username": username},
+        headers={"Authorization": f"Bearer {token}"},
         timeout=10
     )
     resp.raise_for_status()
@@ -29,16 +33,17 @@ if st.button("Refresh"):
 
 with st.spinner("Loading favorite exercises..."):
     try:
-        favorites = fetch_favorites(API_URL, username)
+        favorites = fetch_favorites(API_URL, st.session_state.get("session_id") or "")
     except Exception as e:
         st.error(str(e))
         favorites = []
 
-def remove_exercise_from_favorites(username, exercise_name):
-    try:        
+def remove_exercise_from_favorites(exercise_name):
+    try:
         resp = requests.delete(
             f"{API_URL}/favorites",
-            params={"username": username, "exercise_name": exercise_name},
+            params={"exercise_name": exercise_name},
+            headers=_auth_headers(),
             timeout=10
         )
         resp.raise_for_status()
@@ -59,10 +64,9 @@ else:
             st.markdown(f"### {name}")
         with col2:
             if st.button("delete", key=f"delete_{name}"):
-                message = remove_exercise_from_favorites(username, name)
+                message = remove_exercise_from_favorites(name)
                 st.success(message)
                 fetch_favorites.clear()
                 st.rerun()
         with st.expander(name):
             st.json(data)
-

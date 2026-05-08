@@ -13,6 +13,7 @@ st.subheader("Your personal workout & nutrition AI")
 # ---- session state defaults ----
 defaults = {
     "user": None,
+    "session_id": None,
     "awaiting_workout_save": False,
     "awaiting_favorite_selection": False,
     "pending_workout": "",
@@ -30,40 +31,44 @@ defaults = {
 for k, v in defaults.items():
     st.session_state.setdefault(k, v)
 
-def fetch_chat_messages(api_url: str, username: str, chat_id: str):
+
+def auth_headers():
+    token = st.session_state.get("session_id")
+    return {"Authorization": f"Bearer {token}"} if token else {}
+
+
+def fetch_chat_messages(api_url: str, chat_id: str):
     resp = requests.get(
         f"{api_url}/chats/{chat_id}/messages",
-        params={"username": username},
+        headers=auth_headers(),
         timeout=10
     )
     resp.raise_for_status()
     return resp.json().get("messages", [])
 
 
-def create_chat(api_url: str, username: str, first_message: str):
+def create_chat(api_url: str, first_message: str):
     title = first_message.strip()[:40] if first_message.strip() else "New Chat"
 
     resp = requests.post(
         f"{api_url}/chats",
-        json={
-            "username": username,
-            "title": title
-        },
+        json={"title": title},
+        headers=auth_headers(),
         timeout=10
     )
     resp.raise_for_status()
     return resp.json().get("chat_id")
 
 
-def save_message(api_url: str, username: str, chat_id: str, sender: str, content: str):
+def save_message(api_url: str, chat_id: str, sender: str, content: str):
     resp = requests.post(
         f"{api_url}/chats/messages",
         json={
-            "username": username,
             "chat_id": chat_id,
             "sender": sender,
             "content": content
         },
+        headers=auth_headers(),
         timeout=10
     )
     resp.raise_for_status()
@@ -79,7 +84,7 @@ def load_selected_chat():
         return
 
     try:
-        messages = fetch_chat_messages(API_URL, user["username"], chat_id)
+        messages = fetch_chat_messages(API_URL, chat_id)
         st.session_state.chat_messages = [
             {
                 "role": msg.get("role", "user"),
@@ -112,6 +117,10 @@ else:
     st.write(f"Logged in as: **{st.session_state.user['username']}**")
 
     if st.button("Log Out"):
+        try:
+            requests.post(f"{API_URL}/logout", headers=auth_headers(), timeout=5)
+        except Exception:
+            pass
         for k, v in defaults.items():
             st.session_state[k] = v
         st.rerun()
@@ -120,12 +129,12 @@ st.divider()
 
 st.markdown(
     """
-Welcome!  
+Welcome!
 This app helps you:
-- Generate customized workout plans  
-- Build meal plans with calories & macros  
-- Track your progress  
-- Adapt and improve weekly with AI  
+- Generate customized workout plans
+- Build meal plans with calories & macros
+- Track your progress
+- Adapt and improve weekly with AI
 """
 )
 
@@ -142,14 +151,12 @@ if st.session_state.user is not None:
 
     if user_input:
         try:
-            username = st.session_state.user["username"]
-
             if not st.session_state.selected_chat_id:
-                new_chat_id = create_chat(API_URL, username, user_input)
+                new_chat_id = create_chat(API_URL, user_input)
                 st.session_state.selected_chat_id = new_chat_id
                 st.session_state.loaded_chat_id = new_chat_id
             chat_id = st.session_state.selected_chat_id
-            save_message(API_URL, username, chat_id, "user", user_input)
+            save_message(API_URL, chat_id, "user", user_input)
             st.session_state.submitted_text = user_input
             st.session_state.chat_messages.append({
                 "role": "user",
@@ -157,7 +164,7 @@ if st.session_state.user is not None:
             })
             answer = handle_user_input(API_URL)
             if answer:
-                save_message(API_URL, username, chat_id, "assistant", answer)
+                save_message(API_URL, chat_id, "assistant", answer)
                 st.session_state.chat_messages.append({
                     "role": "assistant",
                     "content": answer

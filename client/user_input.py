@@ -8,6 +8,11 @@ FAVORITE_SELECTION_MESSAGE = (
     "or type 'all' to add all of them. You can also do comma-separated like: 1,3,5"
 )
 
+
+def _auth_headers():
+    token = st.session_state.get("session_id")
+    return {"Authorization": f"Bearer {token}"} if token else {}
+
 def submit():
     st.session_state.submitted_text = st.session_state.user_input
     st.session_state.user_input = ""
@@ -76,10 +81,10 @@ def handle_user_input(url):
                 resp = requests.post(
                     f"{url}/favorites",
                     json={
-                        "username": st.session_state.user["username"],
                         "exercise_name": ex.get("name", "Exercise"),
                         "exercise_data": ex,
                     },
+                    headers=_auth_headers(),
                     timeout=20,
                 )
 
@@ -125,10 +130,10 @@ def handle_user_input(url):
             response = requests.post(
                 f"{url}/workouts",
                 json={
-                    "username": st.session_state.user["username"],
                     "workout_name": workout_name,
                     "workout_data": {"text": st.session_state.pending_workout},
                 },
+                headers=_auth_headers(),
                 timeout=20,
             )
 
@@ -172,7 +177,8 @@ def handle_user_input(url):
     try:
         resp = requests.post(
             f"{url}/ask",
-            json={"prompt": user_text, "user": st.session_state.get("user")},
+            json={"prompt": user_text},
+            headers=_auth_headers(),
             timeout=60,
         )
 

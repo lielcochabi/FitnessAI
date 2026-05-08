@@ -17,7 +17,7 @@ def signup_dialog():
             st.warning("Please fill in all fields.")
             return
         try:
-            resp = requests.post(f"{API_URL}/signup", params={
+            resp = requests.post(f"{API_URL}/signup", json={
                 "username": username,
                 "first_name": first_name,
                 "email": email,
@@ -27,6 +27,7 @@ def signup_dialog():
             resp.raise_for_status()
             data = resp.json()
             st.session_state.user = data["user"]
+            st.session_state.session_id = data["session_id"]
 
             st.success("Account created")
             st.rerun()
@@ -44,7 +45,7 @@ def login_dialog():
             st.warning("Please fill in all fields.")
             return
         try:
-            resp = requests.post(f"{API_URL}/login", params={
+            resp = requests.post(f"{API_URL}/login", json={
                 "username": username,
                 "password": password
             },
@@ -52,10 +53,10 @@ def login_dialog():
             resp.raise_for_status()
             data = resp.json()
             st.session_state.user = data["user"]
+            st.session_state.session_id = data["session_id"]
 
             st.success("Logged in")
             st.rerun()
 
         except Exception as e:
             st.error(str(e))
-
