@@ -1,0 +1,27 @@
+# Horizontal Pod Autoscaler: scale the API server between 1 and 4 replicas
+# based on CPU utilization. Requires the metrics-server addon (k3d/k3s ship
+# with it enabled; on EKS/AKS you may need to install it once).
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: my-app-server-hpa
+  namespace: fitnessai
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: my-app-server
+  minReplicas: 1
+  maxReplicas: 4
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 120
+    scaleUp:
+      stabilizationWindowSeconds: 0

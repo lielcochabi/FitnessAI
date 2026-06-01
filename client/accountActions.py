@@ -1,8 +1,8 @@
-import os
 import streamlit as st
 import requests
+from config import get_api_url
 
-API_URL = os.getenv("API_URL", "http://127.0.0.1:8000")
+API_URL = get_api_url()
 TIMEOUT = 10
 
 @st.dialog("Sign Up")

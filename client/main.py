@@ -1,10 +1,10 @@
-import os
 import streamlit as st
 import requests
 from accountActions import signup_dialog, login_dialog
 from user_input import handle_user_input
+from config import get_api_url
 
-API_URL = os.getenv("API_URL", "http://127.0.0.1:8000")
+API_URL = get_api_url()
 
 st.set_page_config(page_title="AI Fitness Plan Assistant", layout="wide")
 st.title("AI Fitness Plan Assistant!")

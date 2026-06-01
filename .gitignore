@@ -11,7 +11,8 @@ env/
 venv/
 
 # --- Streamlit cache & logs ---
-.streamlit/
+# Ignore real secrets but keep committable config / *.example files.
+**/.streamlit/secrets.toml
 logs/
 cache/
 
@@ -28,3 +29,6 @@ Thumbs.db
 # --- Environment variable files (NEVER commit keys) ---
 *.env
 .env.*
+
+# --- Kubernetes secrets (NEVER commit real values) ---
+deploy/secret.yaml

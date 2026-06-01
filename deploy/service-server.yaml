@@ -1,7 +1,10 @@
+# Stable in-cluster address for the API. Reachable only from inside the
+# cluster (ClusterIP) at: my-app-server.fitnessai:8000
 apiVersion: v1
 kind: Service
 metadata:
   name: my-app-server
+  namespace: fitnessai
 spec:
   selector:
     app: my-app-server

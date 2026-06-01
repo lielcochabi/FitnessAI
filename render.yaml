@@ -1,0 +1,30 @@
+# Render Blueprint for the FastAPI backend.
+# Docs: https://render.com/docs/blueprint-spec
+#
+# How to use:
+#   1. Push this repo to GitHub (when you decide to).
+#   2. On Render: New > Blueprint > pick this repo. Render reads this file.
+#   3. Render will prompt for MONGODB_URI and RAPIDAPI_KEY (sync: false means
+#      they are NOT stored in git -- you type them into the Render dashboard).
+#   4. Render builds server/Dockerfile, runs it, and gives you a public URL
+#      like https://fitnessai-server.onrender.com
+#   5. Put that URL (no trailing slash) into the Streamlit Cloud secret API_URL.
+#
+# Free plan note: the service sleeps after ~15 min idle. The GitHub Actions
+# keep-alive workflow (.github/workflows/keep-alive.yml) pings /health to
+# prevent that.
+services:
+  - type: web
+    name: fitnessai-server
+    runtime: docker
+    repo: https://github.com/lielcochabi/FitnessAI
+    dockerfilePath: ./server/Dockerfile
+    dockerContext: ./server
+    plan: free
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: MONGODB_URI
+        sync: false
+      - key: RAPIDAPI_KEY
+        sync: false

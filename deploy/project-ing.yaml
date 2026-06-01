@@ -1,23 +1,34 @@
+# Ingress: the only externally reachable resource. Routes HTTP traffic to the
+# Streamlit client Service.
+#
+# LOCAL (k3d): host "fitnessai.localhost" resolves to 127.0.0.1 in every modern
+# browser, so no /etc/hosts edit is needed. With the cluster created as:
+#   k3d cluster create fitnessai --port "8080:80@loadbalancer"
+# the app is reachable at  http://fitnessai.localhost:8080
+#
+# CLOUD: change the host to your domain (or a *.nip.io host based on the
+# cluster's public IP), then uncomment the cert-manager annotation and the
+# tls: block below to get automatic HTTPS via Let's Encrypt.
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: basecamp-project
-  annotations:
-    acme.cert-manager.io/http01-edit-in-place: 'true'
-    cert-manager.io/cluster-issuer: letsencrypt
+  name: fitnessai-ingress
+  namespace: fitnessai
+  # annotations:
+  #   cert-manager.io/cluster-issuer: letsencrypt
 spec:
   rules:
-  - host: basecamp-{{ CI_PROJECT_ID }}.edu.k8s.th-luebeck.dev
-    http:
-      paths:
-        - path: /
-          pathType: Prefix
-          backend:
-            service:
-              name: my-app-client
-              port:
-                number: 80
-  tls:
-  - hosts:
-    - basecamp-{{ CI_PROJECT_ID }}.edu.k8s.th-luebeck.dev
-    secretName: basecamp-ingress-cert
+    - host: fitnessai.localhost
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: my-app-client
+                port:
+                  number: 80
+  # tls:
+  #   - hosts:
+  #       - fitnessai.localhost
+  #     secretName: fitnessai-ingress-cert

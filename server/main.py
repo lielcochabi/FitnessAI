@@ -20,6 +20,13 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+# ------------------ Health Check ------------------ #
+@app.get("/health")
+def health():
+    """Liveness/readiness probe target for Kubernetes."""
+    return {"status": "ok"}
+
+
 # ------------------ DSPy Endpoint ------------------ #
 class AskRequest(BaseModel):
     prompt: str

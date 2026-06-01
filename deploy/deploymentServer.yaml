@@ -1,9 +1,23 @@
+# FastAPI backend Deployment.
+# - Generic local image (built + imported into k3d); no registry hardcoding.
+# - Credentials come from the Secret, cache config from the ConfigMap (envFrom).
+# - Zero-downtime rolling updates: a new pod must be Ready before the old one
+#   is removed (maxUnavailable: 0).
+# - HTTP probes hit /health so Kubernetes only routes traffic to a live pod.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: my-app-server
+  namespace: fitnessai
+  labels:
+    app: my-app-server
 spec:
   replicas: 1
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
   selector:
     matchLabels:
       app: my-app-server
@@ -12,21 +26,39 @@ spec:
       labels:
         app: my-app-server
     spec:
-      imagePullSecrets: [{"name": "gitlab-registry-{{ CI_PROJECT_ID }}"}]
       containers:
-      - name: server
-        image: "{{ CI_REGISTRY_IMAGE }}/server:latest"
-        ports:
-        - containerPort: 8000
-        env:
-        - name: MONGODB_URI
-          value: "{{MONGODB_URI}}"
-        - name: RAPIDAPI_KEY
-          value: "{{RAPIDAPI_KEY}}"
-        resources:
-          limits:
-            cpu: 200m
-            memory: 512Mi
-          requests:
-            cpu: 50m
-            memory: 256Mi
+        - name: server
+          # Built locally with:  docker build -t fitnessai-server:latest ./server
+          # then imported with:  k3d image import fitnessai-server:latest -c fitnessai
+          image: fitnessai-server:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8000
+          envFrom:
+            - secretRef:
+                name: fitnessai-secrets
+            - configMapRef:
+                name: fitnessai-config
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 30
+            periodSeconds: 15
+            timeoutSeconds: 3
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          resources:
+            limits:
+              cpu: 200m
+              memory: 512Mi
+            requests:
+              cpu: 50m
+              memory: 256Mi

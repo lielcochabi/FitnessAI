@@ -1,7 +1,10 @@
+# Maps standard HTTP port 80 to Streamlit's 8501 so the Ingress can target a
+# clean port. ClusterIP: only the Ingress reaches it, not the public internet.
 apiVersion: v1
 kind: Service
 metadata:
   name: my-app-client
+  namespace: fitnessai
 spec:
   selector:
     app: my-app-client

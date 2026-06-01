@@ -1,0 +1,15 @@
+# Non-secret configuration for the server. Kept separate from secret.yaml so
+# values can be committed to git and changed without redeploying images.
+# Read in deploymentServer.yaml via `envFrom: [{configMapRef: ...}]`.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: fitnessai-config
+  namespace: fitnessai
+data:
+  # Cache for ExerciseDB API responses (seconds). One week by default.
+  EXERCISE_CACHE_TTL_SECONDS: "604800"
+  # Max number of distinct cached ExerciseDB queries kept in memory.
+  EXERCISE_CACHE_MAX_KEYS: "40"
+  # TTL for the in-memory "exercise bag" shuffled per user (seconds). One day.
+  EXERCISE_BAG_TTL_SECONDS: "86400"
