@@ -4,7 +4,7 @@ from contextlib import asynccontextmanager
 from dataBase import (signup_user,login_user,add_workout,get_all_workouts,get_workout_by_name,
 add_favorite_exercise,get_favorite_exercises,remove_favorite_exercise,delete_workout,
 create_chat,list_chats,add_message,get_chat_messages,rename_chat,delete_chat,
-create_session,delete_session,)
+create_session,delete_session,get_user_profile,update_user_profile,)
 from dspyRun import search_fitness_info, init_dspy
 from auth import get_current_user, get_session_id_from_header
 
@@ -35,7 +35,8 @@ class AskRequest(BaseModel):
 @app.post("/ask")
 def ask(req: AskRequest, current_user: str = Depends(get_current_user)):
     try:
-        result = search_fitness_info(req.prompt, current_user)
+        profile = get_user_profile(current_user)
+        result = search_fitness_info(req.prompt, current_user, profile)
         if isinstance(result, dict):
             return result
         return {"answer": result}
@@ -80,6 +81,32 @@ def login(req: LoginRequest):
 def logout(session_id: str = Depends(get_session_id_from_header)):
     delete_session(session_id)
     return {"message": "Logged out"}
+
+
+# ------------------ User Profile ------------------ #
+class ProfileUpdate(BaseModel):
+    experience: str
+    days_per_week: int
+    equipment: list[str] = []
+    injuries: str = ""
+
+
+@app.get("/profile")
+def read_profile(current_user: str = Depends(get_current_user)):
+    try:
+        profile = get_user_profile(current_user)
+        return {"profile": profile}
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+@app.put("/profile")
+def save_profile(req: ProfileUpdate, current_user: str = Depends(get_current_user)):
+    try:
+        profile = update_user_profile(current_user, req.model_dump())
+        return {"message": "Profile updated", "profile": profile}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 # ------------------ Workouts ------------------ #

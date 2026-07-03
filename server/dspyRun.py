@@ -89,6 +89,26 @@ def create_workout_routine(prompt):
     return
 
 
+def build_profile_block(profile):
+    if not profile:
+        return ""
+    lines = ["User profile - the routine MUST respect ALL of these:"]
+    lines.append(f"- Experience level: {profile['experience']}")
+    lines.append(
+        f"- Training days per week: exactly {profile['days_per_week']} training days"
+    )
+    equipment = profile.get("equipment") or []
+    if equipment:
+        lines.append(f"- Available equipment: {', '.join(equipment)}. Use ONLY this equipment.")
+    injuries = (profile.get("injuries") or "").strip()
+    if injuries:
+        lines.append(
+            f"- Injuries/limitations: {injuries}. Avoid exercises that stress these areas "
+            f"and add a short note explaining what was avoided and why."
+        )
+    return "\n".join(lines)
+
+
 def _extract_answer(pred) -> str:
     if hasattr(pred, "answer"):
         return pred.answer or ""
@@ -96,7 +116,7 @@ def _extract_answer(pred) -> str:
         return pred.get("answer", "")
     return str(pred) or ""
 
-def search_fitness_info(prompt, user):
+def search_fitness_info(prompt, user, profile=None):
     prompt_lower = prompt.lower()
 
     for keyword in keyWordsForFavorites:
@@ -128,6 +148,9 @@ User question: {prompt}
 
     if workoutFlag:
         full_prompt += "\nCreate a detailed workout routine based on the user's request."
+        profile_block = build_profile_block(profile)
+        if profile_block:
+            full_prompt += "\n" + profile_block
         pred = search(question=full_prompt)
         workout_text = _extract_answer(pred) 
 

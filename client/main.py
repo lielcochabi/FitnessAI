@@ -37,6 +37,56 @@ def auth_headers():
     return {"Authorization": f"Bearer {token}"} if token else {}
 
 
+EQUIPMENT_OPTIONS = [
+    "Bodyweight only", "Dumbbells", "Barbell", "Kettlebells",
+    "Resistance bands", "Cables", "Machines", "Pull-up bar",
+]
+EXPERIENCE_LEVELS = ["Beginner", "Intermediate", "Advanced"]
+
+
+def render_profile_sidebar(api_url: str):
+    profile = st.session_state.user.get("profile", {})
+    with st.sidebar:
+        st.header("Personalize your plan")
+        experience = st.selectbox(
+            "Experience level",
+            EXPERIENCE_LEVELS,
+            index=EXPERIENCE_LEVELS.index(profile.get("experience", "Beginner")),
+        )
+        days_per_week = st.slider(
+            "Training days per week", 1, 7, profile.get("days_per_week", 3)
+        )
+        equipment = st.multiselect(
+            "Available equipment",
+            EQUIPMENT_OPTIONS,
+            default=[e for e in profile.get("equipment", []) if e in EQUIPMENT_OPTIONS],
+        )
+        injuries = st.text_input(
+            "Injuries or limitations (optional)", value=profile.get("injuries", "")
+        )
+
+        if st.button("Save profile"):
+            try:
+                resp = requests.put(
+                    f"{api_url}/profile",
+                    json={
+                        "experience": experience,
+                        "days_per_week": days_per_week,
+                        "equipment": equipment,
+                        "injuries": injuries,
+                    },
+                    headers=auth_headers(),
+                    timeout=10,
+                )
+                if not resp.ok:
+                    st.error(resp.json().get("detail", "Failed to save profile."))
+                else:
+                    st.session_state.user["profile"] = resp.json()["profile"]
+                    st.success("Profile saved!")
+            except Exception as e:
+                st.error(str(e))
+
+
 def fetch_chat_messages(api_url: str, chat_id: str):
     resp = requests.get(
         f"{api_url}/chats/{chat_id}/messages",
@@ -115,6 +165,7 @@ if st.session_state.user is None:
             login_dialog()
 else:
     st.write(f"Logged in as: **{st.session_state.user['username']}**")
+    render_profile_sidebar(API_URL)
 
     if st.button("Log Out"):
         try:

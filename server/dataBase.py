@@ -9,6 +9,13 @@ from bson import ObjectId
 
 SESSION_TTL_DAYS = int(os.getenv("SESSION_TTL_DAYS", "7"))
 
+DEFAULT_PROFILE = {
+    "experience": "Beginner",
+    "days_per_week": 3,
+    "equipment": [],
+    "injuries": "",
+}
+
 load_dotenv()
 
 DB_URI = os.getenv("MONGODB_URI", "")
@@ -71,6 +78,7 @@ def signup_user(username, first_name, email, password):
         "first_name": first_name,
         "email": email,
         "password_hash": password_hash,
+        "profile": dict(DEFAULT_PROFILE),
     }
 
     try:
@@ -82,6 +90,7 @@ def signup_user(username, first_name, email, password):
         "username": user["username"],
         "first_name": user["first_name"],
         "email": user["email"],
+        "profile": user["profile"],
     }
 
 # -------- LOGIN FUNCTION--------
@@ -102,7 +111,50 @@ def login_user(username, password):
         "username": user["username"],
         "first_name": user["first_name"],
         "email": user["email"],
+        "profile": user.get("profile", dict(DEFAULT_PROFILE)),
     }
+
+
+# -------- PROFILE FUNCTIONS --------
+def get_user_profile(username):
+    username = username.strip()
+    user = users_collection.find_one({"username": username}, {"_id": 0, "profile": 1})
+    if not user:
+        raise ValueError("User not found")
+    return user.get("profile", dict(DEFAULT_PROFILE))
+
+
+def update_user_profile(username, profile):
+    username = username.strip()
+
+    experience = profile.get("experience", "")
+    days_per_week = profile.get("days_per_week", 0)
+    equipment = profile.get("equipment", [])
+    injuries = profile.get("injuries", "")
+
+    if experience not in ("Beginner", "Intermediate", "Advanced"):
+        raise ValueError("Invalid experience level")
+    if not isinstance(days_per_week, int) or not 1 <= days_per_week <= 7:
+        raise ValueError("Days per week must be between 1 and 7")
+    if not isinstance(equipment, list) or not all(isinstance(e, str) for e in equipment):
+        raise ValueError("Equipment must be a list of strings")
+    if not isinstance(injuries, str):
+        raise ValueError("Injuries must be text")
+
+    clean_profile = {
+        "experience": experience,
+        "days_per_week": days_per_week,
+        "equipment": equipment,
+        "injuries": injuries.strip(),
+    }
+
+    result = users_collection.update_one(
+        {"username": username},
+        {"$set": {"profile": clean_profile}},
+    )
+    if result.matched_count == 0:
+        raise ValueError("User not found")
+    return clean_profile
 
 
 # ------------------ WORKOUTS ------------------
