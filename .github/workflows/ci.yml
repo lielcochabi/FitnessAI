@@ -60,8 +60,14 @@ jobs:
       - name: Run tests
         working-directory: ${{ matrix.component }}
         run: |
+          # GitHub Actions runs `run:` steps with `bash -e` by default, so a
+          # bare non-zero exit from pytest would abort the script right here,
+          # before `code=$?` is ever reached. `set +e`/`set -e` bracket the
+          # pytest call to suspend that behavior just for this one command.
+          set +e
           pytest -q
           code=$?
+          set -e
           if [ $code -ne 0 ] && [ $code -ne 5 ]; then
             exit $code
           fi
