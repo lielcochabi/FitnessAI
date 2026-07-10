@@ -1,0 +1,79 @@
+name: CI
+
+# .gitlab-ci.yml builds/deploys against the school GitLab instance and its
+# private Kubernetes cluster, so it can't run here and nothing shows up on
+# GitHub - which is where this repo actually gets reviewed. This workflow
+# adapts the parts that make sense on GitHub: installing each component and
+# proving the Dockerfiles still build. Deploys stay on Render (auto-deploys
+# on push) and GitLab CI; this workflow only validates the code.
+#
+# The test step tolerates "no tests collected" (pytest exit code 5) for now,
+# since there are no tests yet - once tests are added under server/ or
+# client/, this same step starts actually enforcing them.
+#
+# server/dataBase.py requires MONGODB_URI at import time, so tests need a
+# real MongoDB to connect to. Rather than pointing tests at the production
+# Atlas cluster (which would mean storing prod credentials as a CI secret,
+# and risking a bug sending test writes to real user data), this job spins
+# up a brand-new, empty MongoDB container that exists only for this run and
+# is discarded when the job ends - it is not reachable from anywhere else
+# and holds no real data. Tests connect to it via MONGODB_URI=
+# mongodb://localhost:27017, exactly like a locally running MongoDB.
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        component: [server, client]
+    services:
+      mongodb:
+        image: mongo:7
+        ports:
+          - 27017:27017
+        options: >-
+          --health-cmd "mongosh --quiet --eval 'db.runCommand({ping:1})'"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      MONGODB_URI: mongodb://localhost:27017
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        working-directory: ${{ matrix.component }}
+        run: |
+          pip install -r requirements.txt
+          pip install pytest
+
+      - name: Run tests
+        working-directory: ${{ matrix.component }}
+        run: |
+          pytest -q
+          code=$?
+          if [ $code -ne 0 ] && [ $code -ne 5 ]; then
+            exit $code
+          fi
+
+  build:
+    runs-on: ubuntu-latest
+    needs: test
+    strategy:
+      matrix:
+        component: [server, client]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build ${{ matrix.component }} Docker image
+        run: docker build -t fitnessai-${{ matrix.component }}:ci ./${{ matrix.component }}

@@ -1,5 +1,7 @@
 AI Fitness Plan Assistant
 
+![CI](https://github.com/lielcochabi/FitnessAI/actions/workflows/ci.yml/badge.svg)
+
 ## Motivation
 
 Many people, including myself, want to start training, improve their workouts, or try new exercises. However, finding the right exercises or building an effective workout plan can take a long time and often becomes confusing.
@@ -76,7 +78,7 @@ http://localhost:8000
 
 The backend requires the following environment variables:
 
-MONGO_URI=your_mongodb_connection
+MONGODB_URI=your_mongodb_connection
 RAPIDAPI_KEY=your_exercisedb_api_key
 API_URL=http://localhost:8000
 
@@ -88,16 +90,43 @@ streamlit run main.py
 If running locally, the client will open at:
 http://localhost:8501
 
+## Testing
+
+The backend has a pytest suite (`server/test_*.py`) that runs against a real, throwaway MongoDB instead of a mock - see `server/conftest.py` for why.
+
+Local setup (one-time):
+```
+docker run -d -p 27017:27017 mongo:7
+cd server
+cp .env.test.example .env.test
+python -m venv venv
+venv\Scripts\python.exe -m pip install -r requirements.txt pytest
+```
+
+Run the tests:
+```
+venv\Scripts\python.exe -m pytest -v
+```
+
+Tests will refuse to run (rather than silently falling back to the real database) if neither `MONGODB_URI` nor `server/.env.test` is set - see the comments at the top of `server/conftest.py`.
+
 ## Deployment
 
-The project is designed to run in a containerized environment.
+The project is designed to run in a containerized environment, and currently ships to production two different ways depending on the piece:
 
-The GitLab pipeline builds Docker images and deploys the application to a Kubernetes cluster using the manifests in the deploy directory.
+- **CI** - GitHub Actions (`.github/workflows/ci.yml`) runs the pytest suite and verifies both Dockerfiles still build, on every push and pull request.
+- **Backend** - deployed on [Render](https://render.com), which watches this repo and redeploys automatically on push to `master` (see `render.yaml`).
+- **Frontend** - deployed on Streamlit Community Cloud, same auto-deploy-on-push behavior.
+- **Local / on-demand** - `docker compose up` runs the full stack (server + client) plus a Cloudflare Tunnel that exposes the local client at a temporary public URL for as long as it's running - useful for demoing without needing an always-on host.
 
-The services are exposed through Kubernetes and can be accessed via the configured ingress.
+The `deploy/` directory still holds Kubernetes manifests (Deployments, Services, and an Ingress built for a `k3d` cluster) from this project's original GitLab CI/CD pipeline, which deployed to a course-provided Kubernetes cluster. That cluster isn't reachable from here, so GitHub Actions doesn't have a `deploy` job - see Roadmap below.
 
 ## Project Structure
 CLOUDPROG-LIEL-COCHABI
+│
+├── .github
+│   └── workflows
+│       └── ci.yml
 │
 ├── client
 │   ├── pages
@@ -123,11 +152,15 @@ CLOUDPROG-LIEL-COCHABI
 │   ├── dspyRun.py
 │   ├── exerciseDB.py
 │   ├── main.py
-│   └── requirements.txt
+│   ├── requirements.txt
+│   ├── conftest.py
+│   ├── test_database.py
+│   ├── test_auth.py
+│   ├── test_api.py
+│   └── .env.test.example
 │
 ├── .dockerignore
 ├── .gitignore
-├── .gitlab-ci.yml
 ├── compose.yaml
 └── README.md
 
@@ -140,8 +173,11 @@ Python, FastAPI, MongoDB
 Frontend
 Streamlit
 
+Testing
+pytest, GitHub Actions
+
 Infrastructure
-Docker, Kubernetes, GitLab CI/CD
+Docker, Kubernetes manifests (not currently deployed - see Deployment), Render, Streamlit Community Cloud, Cloudflare Tunnel (local/on-demand)
 
 External API
 ExerciseDB
@@ -153,7 +189,7 @@ ExerciseDB
 The project follows several principles from the 12-Factor App methodology:
 
 Codebase
- - The project is stored in a Git repository and managed through GitLab.
+ - The project is stored in a Git repository, hosted on GitHub.
 
 Dependencies
  - All dependencies are explicitly declared in requirements.txt.
@@ -165,13 +201,17 @@ Backing Services
  - MongoDB and ExerciseDB are treated as external services that the application connects to.
 
 Build, Release, Run
- - Docker images are built through GitLab CI/CD and deployed separately from the codebase.
+ - GitHub Actions builds and tests the Docker images on every push; Render and Streamlit Community Cloud independently handle release/run by redeploying from the repo automatically.
 
 Processes
- - The application runs inside containers managed by Kubernetes.
+ - The application runs inside containers - in production via Render/Streamlit Community Cloud, locally via `docker compose` or the Kubernetes manifests in `deploy/`.
 
 Logs
  - Application logs are written to standard output and collected by the container runtime.
 
 Dev/Prod Parity
  - Docker ensures the development and production environments behave consistently.
+
+## Roadmap
+
+ - **CI/CD deploy stage** - CI currently only tests and builds; there's no automated `deploy` job. The original GitLab pipeline deployed to a course-provided Kubernetes cluster that isn't reachable from here. Render/Streamlit Community Cloud cover this today via their own git integration, but a real GitHub Actions deploy job (e.g. pushing images to a registry and applying the `deploy/` manifests to a real cluster) is still an open item.
