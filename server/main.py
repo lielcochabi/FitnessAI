@@ -1,6 +1,9 @@
-from fastapi import FastAPI, HTTPException, Depends
+from fastapi import FastAPI, HTTPException, Depends, Request
 from pydantic import BaseModel
 from contextlib import asynccontextmanager
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.util import get_remote_address
 from dataBase import (signup_user,login_user,add_workout,get_all_workouts,get_workout_by_name,
 add_favorite_exercise,get_favorite_exercises,remove_favorite_exercise,delete_workout,
 create_chat,list_chats,add_message,get_chat_messages,rename_chat,delete_chat,
@@ -19,6 +22,9 @@ app = FastAPI(
     version="1.0.0",
     lifespan=lifespan,
 )
+limiter = Limiter(key_func=get_remote_address, strategy="moving-window")
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # ------------------ Health Check ------------------ #
 @app.get("/health")
@@ -58,7 +64,8 @@ class LoginRequest(BaseModel):
 
 
 @app.post("/signup")
-def signup(req: SignupRequest):
+@limiter.limit("5/minute")
+def signup(request: Request, req: SignupRequest):
     try:
         user = signup_user(req.username, req.first_name, req.email, req.password)
         session_id = create_session(user["username"])
@@ -68,7 +75,8 @@ def signup(req: SignupRequest):
 
 
 @app.post("/login")
-def login(req: LoginRequest):
+@limiter.limit("5/minute")
+def login(request: Request, req: LoginRequest):
     try:
         user = login_user(req.username, req.password)
         session_id = create_session(user["username"])

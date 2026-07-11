@@ -36,3 +36,6 @@ Thumbs.db
 
 # --- Kubernetes secrets (NEVER commit real values) ---
 deploy/secret.yaml
+
+# --- Personal notes, not for the repo ---
+TODO.txt

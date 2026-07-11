@@ -211,7 +211,3 @@ Logs
 
 Dev/Prod Parity
  - Docker ensures the development and production environments behave consistently.
-
-## Roadmap
-
- - **CI/CD deploy stage** - CI currently only tests and builds; there's no automated `deploy` job. The original GitLab pipeline deployed to a course-provided Kubernetes cluster that isn't reachable from here. Render/Streamlit Community Cloud cover this today via their own git integration, but a real GitHub Actions deploy job (e.g. pushing images to a registry and applying the `deploy/` manifests to a real cluster) is still an open item.

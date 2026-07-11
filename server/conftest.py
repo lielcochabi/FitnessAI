@@ -50,6 +50,7 @@ from dataBase import (
     messages_per_chat_collection,
     sessions_collection,
 )
+from main import limiter
 
 
 @pytest.fixture(autouse=True)
@@ -63,3 +64,14 @@ def clean_collections():
         sessions_collection,
     ):
         collection.delete_many({})
+
+
+@pytest.fixture(autouse=True)
+def reset_rate_limits():
+    # /login and /signup are rate-limited (see main.py). slowapi's default
+    # in-memory storage is keyed by client IP and persists for the life of
+    # the process - since every test shares the same `app` object and
+    # TestClient reports the same fake IP for all of them, without this,
+    # tests later in the run would start getting real 429s from earlier
+    # tests' login/signup calls instead of the response they expect.
+    limiter.reset()

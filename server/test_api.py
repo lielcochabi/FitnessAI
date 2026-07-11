@@ -53,6 +53,28 @@ def test_protected_route_rejects_missing_auth():
     assert resp.status_code == 401
 
 
+def test_login_rate_limited_after_too_many_attempts():
+    # /login allows 5 requests/minute per IP (see main.py). Wrong-password
+    # attempts still count against the limit - that's the point, it's brute
+    # force protection - so 6 bad attempts in a row should get a real 401
+    # for the first 5 and a 429 (not a 401) for the 6th.
+    with TestClient(app) as client:
+        client.post("/signup", json={
+            "username": "liel",
+            "first_name": "Liel",
+            "email": "liel@example.com",
+            "password": "hunter2",
+        })
+
+        responses = [
+            client.post("/login", json={"username": "liel", "password": "wrong"})
+            for _ in range(6)
+        ]
+
+    assert [r.status_code for r in responses[:5]] == [401] * 5
+    assert responses[5].status_code == 429
+
+
 def test_workout_full_crud_flow():
     with TestClient(app) as client:
         session_id = _signup_and_login(client)
