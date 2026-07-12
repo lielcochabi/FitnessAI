@@ -1,7 +1,10 @@
+import logging
 import dspy
-from exerciseDB import get_exercises_by_bodypart, get_exercises_by_target, get_body_parts, get_muscles  
+from exerciseDB import get_exercises_by_bodypart, get_exercises_by_target, get_body_parts, get_muscles
 
-_DSPY_CONFIGURED = False  
+logger = logging.getLogger("fitnessai")
+
+_DSPY_CONFIGURED = False
 
 keyWordsForFindingExercises = [
     "give me exercises",
@@ -151,8 +154,10 @@ User question: {prompt}
         profile_block = build_profile_block(profile)
         if profile_block:
             full_prompt += "\n" + profile_block
+        logger.debug("llm_call_started", extra={"kind": "workout_routine"})
         pred = search(question=full_prompt)
-        workout_text = _extract_answer(pred) 
+        logger.debug("llm_call_finished", extra={"kind": "workout_routine"})
+        workout_text = _extract_answer(pred)
 
         if not workout_text.strip():  
             workout_text = "I couldn't generate the routine. Please rephrase (e.g., 'create a chest workout plan for 3 days')."
@@ -160,5 +165,7 @@ User question: {prompt}
             "Would you like to add this workout to your workoutPlans? "
             "answer with a yes or no\n\n" + workout_text
         )
+    logger.debug("llm_call_started", extra={"kind": "qa"})
     pred = search(question=full_prompt)
-    return _extract_answer(pred) 
+    logger.debug("llm_call_finished", extra={"kind": "qa"})
+    return _extract_answer(pred)

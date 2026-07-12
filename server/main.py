@@ -1,15 +1,21 @@
+import logging
+import uuid
 from fastapi import FastAPI, HTTPException, Depends, Request
 from pydantic import BaseModel
 from contextlib import asynccontextmanager
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
+from logging_setup import configure_logging, bind_request_context, clear_context
 from dataBase import (signup_user,login_user,add_workout,get_all_workouts,get_workout_by_name,
 add_favorite_exercise,get_favorite_exercises,remove_favorite_exercise,delete_workout,
 create_chat,list_chats,add_message,get_chat_messages,rename_chat,delete_chat,
 create_session,delete_session,get_user_profile,update_user_profile,)
 from dspyRun import search_fitness_info, init_dspy
 from auth import get_current_user, get_session_id_from_header
+
+configure_logging()
+logger = logging.getLogger("fitnessai")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -24,7 +30,25 @@ app = FastAPI(
 )
 limiter = Limiter(key_func=get_remote_address, strategy="moving-window")
 app.state.limiter = limiter
-app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+@app.middleware("http")
+async def request_context_middleware(request: Request, call_next):
+    request_id = request.headers.get("X-Request-ID") or str(uuid.uuid4())
+    bind_request_context(request_id=request_id, method=request.method, path=request.url.path)
+    logger.info("request_started")
+    response = await call_next(request)
+    logger.info("request_finished", extra={"status_code": response.status_code})
+    response.headers["X-Request-ID"] = request_id
+    clear_context()
+    return response
+
+
+def _log_and_handle_rate_limit(request: Request, exc: RateLimitExceeded):
+    logger.warning("rate_limit_exceeded", extra={"ip": get_remote_address(request)})
+    return _rate_limit_exceeded_handler(request, exc)
+
+
+app.add_exception_handler(RateLimitExceeded, _log_and_handle_rate_limit)
 
 # ------------------ Health Check ------------------ #
 @app.get("/health")
@@ -46,8 +70,9 @@ def ask(req: AskRequest, current_user: str = Depends(get_current_user)):
         if isinstance(result, dict):
             return result
         return {"answer": result}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    except Exception:
+        logger.exception("ask_endpoint_error")
+        raise HTTPException(status_code=500, detail="Something went wrong. Please try again.")
 
 
 # ------------------ User Authentication ------------------ #
@@ -82,6 +107,7 @@ def login(request: Request, req: LoginRequest):
         session_id = create_session(user["username"])
         return {"message": "Login successful", "user": user, "session_id": session_id}
     except ValueError as e:
+        logger.warning("failed_login_attempt", extra={"attempted_username": req.username})
         raise HTTPException(status_code=401, detail=str(e))
 
 

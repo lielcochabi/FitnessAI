@@ -1,5 +1,6 @@
 from fastapi import Header, HTTPException, status
 from dataBase import get_session_user
+from logging_setup import bind_username
 
 
 def get_current_user(authorization: str | None = Header(default=None)) -> str:
@@ -17,6 +18,7 @@ def get_current_user(authorization: str | None = Header(default=None)) -> str:
             detail="Invalid or expired session",
         )
 
+    bind_username(username)
     return username
 
 

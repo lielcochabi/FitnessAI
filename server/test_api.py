@@ -177,6 +177,109 @@ def test_chat_full_flow():
     assert delete_resp.status_code == 200
 
 
+def test_ask_endpoint_logs_and_hides_internal_error(monkeypatch, caplog):
+    import main as main_module
+
+    def failing_search(prompt, user, profile):
+        raise RuntimeError("leaked internal detail")
+
+    monkeypatch.setattr(main_module, "search_fitness_info", failing_search)
+
+    with TestClient(app) as client:
+        session_id = _signup_and_login(client)
+        headers = {"Authorization": f"Bearer {session_id}"}
+
+        resp = client.post(
+            "/ask", json={"prompt": "give me leg exercises"}, headers=headers
+        )
+
+    assert resp.status_code == 500
+    assert resp.json()["detail"] == "Something went wrong. Please try again."
+    assert "leaked internal detail" not in resp.text
+    assert any(r.getMessage() == "ask_endpoint_error" for r in caplog.records)
+
+
+def test_failed_login_is_logged(caplog):
+    with TestClient(app) as client:
+        client.post("/signup", json={
+            "username": "liel",
+            "first_name": "Liel",
+            "email": "liel@example.com",
+            "password": "hunter2",
+        })
+        client.post("/login", json={"username": "liel", "password": "wrong"})
+
+    matching = [r for r in caplog.records if r.getMessage() == "failed_login_attempt"]
+    assert len(matching) == 1
+    assert matching[0].attempted_username == "liel"
+
+
+def test_rate_limit_block_is_logged(caplog):
+    with TestClient(app) as client:
+        client.post("/signup", json={
+            "username": "liel",
+            "first_name": "Liel",
+            "email": "liel@example.com",
+            "password": "hunter2",
+        })
+        for _ in range(6):
+            client.post("/login", json={"username": "liel", "password": "wrong"})
+
+    matching = [r for r in caplog.records if r.getMessage() == "rate_limit_exceeded"]
+    assert len(matching) == 1
+    assert matching[0].ip is not None
+
+
+def test_request_id_present_in_response_and_logs(caplog):
+    import logging as logging_module
+    caplog.set_level(logging_module.INFO)
+
+    with TestClient(app) as client:
+        resp = client.get("/health")
+
+    request_id = resp.headers.get("X-Request-ID")
+    assert request_id
+
+    matching = [
+        r for r in caplog.records
+        if r.getMessage() == "request_finished" and getattr(r, "request_id", None) == request_id
+    ]
+    assert len(matching) == 1
+    assert matching[0].status_code == 200
+
+
+def test_json_formatter_produces_valid_json_with_expected_fields():
+    import io
+    import json
+    import logging as logging_module
+    from logging_setup import _JSONFormatter, _ContextFilter, bind_request_context, clear_context
+
+    stream = io.StringIO()
+    handler = logging_module.StreamHandler(stream)
+    handler.setFormatter(_JSONFormatter())
+    handler.addFilter(_ContextFilter())
+
+    test_logger = logging_module.getLogger("fitnessai.unittest")
+    test_logger.addHandler(handler)
+    test_logger.setLevel(logging_module.INFO)
+    test_logger.propagate = False
+
+    try:
+        bind_request_context(request_id="test-req-1", method="GET", path="/health")
+        test_logger.info("unit_test_event", extra={"custom_field": "abc"})
+    finally:
+        clear_context()
+        test_logger.removeHandler(handler)
+
+    payload = json.loads(stream.getvalue())
+    assert payload["message"] == "unit_test_event"
+    assert payload["request_id"] == "test-req-1"
+    assert payload["method"] == "GET"
+    assert payload["path"] == "/health"
+    assert payload["custom_field"] == "abc"
+    assert "username" not in payload
+
+
 def test_ask_endpoint_uses_fitness_search(monkeypatch):
     # /ask calls out to a real LLM through dspy - mock the function main.py
     # actually calls so the test is fast, deterministic, and never makes a
