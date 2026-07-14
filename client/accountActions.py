@@ -16,6 +16,15 @@ def signup_dialog():
         if not username or not first_name or not email or not password:
             st.warning("Please fill in all fields.")
             return
+        if len(password) < 8:
+            st.warning("Password must be at least 8 characters.")
+            return
+        if len(password) > 72:
+            st.warning("Password must be at most 72 characters.")
+            return
+        if "@" not in email or "." not in email.split("@")[-1]:
+            st.warning("Please enter a valid email address.")
+            return
         try:
             resp = requests.post(f"{API_URL}/signup", json={
                 "username": username,

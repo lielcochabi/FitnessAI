@@ -9,7 +9,7 @@ from fastapi.testclient import TestClient
 from main import app
 
 
-def _signup_and_login(client, username="liel", password="hunter2"):
+def _signup_and_login(client, username="liel", password="hunter2-pass"):
     client.post("/signup", json={
         "username": username,
         "first_name": "Liel",
@@ -34,16 +34,74 @@ def test_signup_then_login_returns_session():
             "username": "liel",
             "first_name": "Liel",
             "email": "liel@example.com",
-            "password": "hunter2",
+            "password": "hunter2-pass",
         })
         login_resp = client.post("/login", json={
             "username": "liel",
-            "password": "hunter2",
+            "password": "hunter2-pass",
         })
 
     assert signup_resp.status_code == 200
     assert login_resp.status_code == 200
     assert "session_id" in login_resp.json()
+
+
+def test_signup_rejects_weak_password():
+    with TestClient(app) as client:
+        resp = client.post("/signup", json={
+            "username": "liel",
+            "first_name": "Liel",
+            "email": "liel@example.com",
+            "password": "short",
+        })
+
+    assert resp.status_code == 422
+
+
+def test_signup_rejects_overlong_password():
+    with TestClient(app) as client:
+        resp = client.post("/signup", json={
+            "username": "liel",
+            "first_name": "Liel",
+            "email": "liel@example.com",
+            "password": "x" * 73,
+        })
+
+    assert resp.status_code == 422
+
+
+def test_signup_rejects_invalid_email():
+    with TestClient(app) as client:
+        resp = client.post("/signup", json={
+            "username": "liel",
+            "first_name": "Liel",
+            "email": "not-an-email",
+            "password": "hunter2-pass",
+        })
+
+    assert resp.status_code == 422
+
+
+def test_signup_rejects_bad_username_characters():
+    with TestClient(app) as client:
+        resp = client.post("/signup", json={
+            "username": "liel cochabi!",
+            "first_name": "Liel",
+            "email": "liel@example.com",
+            "password": "hunter2-pass",
+        })
+
+    assert resp.status_code == 422
+
+
+def test_login_does_not_enforce_signup_password_rules():
+    with TestClient(app) as client:
+        resp = client.post("/login", json={
+            "username": "liel",
+            "password": "hunter2",
+        })
+
+    assert resp.status_code == 401
 
 
 def test_protected_route_rejects_missing_auth():
@@ -63,7 +121,7 @@ def test_login_rate_limited_after_too_many_attempts():
             "username": "liel",
             "first_name": "Liel",
             "email": "liel@example.com",
-            "password": "hunter2",
+            "password": "hunter2-pass",
         })
 
         responses = [
@@ -241,7 +299,7 @@ def test_failed_login_is_logged(caplog):
             "username": "liel",
             "first_name": "Liel",
             "email": "liel@example.com",
-            "password": "hunter2",
+            "password": "hunter2-pass",
         })
         client.post("/login", json={"username": "liel", "password": "wrong"})
 
@@ -256,7 +314,7 @@ def test_rate_limit_block_is_logged(caplog):
             "username": "liel",
             "first_name": "Liel",
             "email": "liel@example.com",
-            "password": "hunter2",
+            "password": "hunter2-pass",
         })
         for _ in range(6):
             client.post("/login", json={"username": "liel", "password": "wrong"})

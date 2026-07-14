@@ -1,7 +1,7 @@
 import logging
 import uuid
 from fastapi import FastAPI, HTTPException, Depends, Request, Query
-from pydantic import BaseModel
+from pydantic import BaseModel, EmailStr, Field, field_validator
 from contextlib import asynccontextmanager
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
@@ -77,10 +77,20 @@ def ask(req: AskRequest, current_user: str = Depends(get_current_user)):
 
 # ------------------ User Authentication ------------------ #
 class SignupRequest(BaseModel):
-    username: str
-    first_name: str
-    email: str
-    password: str
+    username: str = Field(min_length=3, max_length=30)
+    first_name: str = Field(min_length=1, max_length=50)
+    email: EmailStr
+    # max 72: bcrypt silently truncates past 72 bytes, so anything longer
+    # would only be checked on its first 72 - reject instead of pretending
+    password: str = Field(min_length=8, max_length=72)
+
+    @field_validator("username")
+    @classmethod
+    def username_must_be_simple(cls, v: str) -> str:
+        v = v.strip()
+        if not v.replace("_", "").isalnum():
+            raise ValueError("Username may only contain letters, numbers, and underscores")
+        return v
 
 
 class LoginRequest(BaseModel):
