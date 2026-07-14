@@ -134,10 +134,28 @@ def test_add_and_list_workout():
     signup_user("liel", "Liel", "liel@example.com", "hunter2")
 
     add_workout({"exercises": ["squat", "bench"]}, "Leg Day", "liel")
-    workouts = get_all_workouts("liel")
+    workouts, total = get_all_workouts("liel")
 
     assert len(workouts) == 1
+    assert total == 1
     assert workouts[0]["workout_name"] == "Leg Day"
+
+
+def test_workout_pagination():
+    signup_user("liel", "Liel", "liel@example.com", "hunter2")
+    for i in range(3):
+        add_workout({"exercises": ["squat"]}, f"Workout {i}", "liel")
+
+    first_page, total = get_all_workouts("liel", limit=2, skip=0)
+    second_page, _ = get_all_workouts("liel", limit=2, skip=2)
+
+    assert total == 3
+    assert len(first_page) == 2
+    assert len(second_page) == 1
+    # no overlap between pages
+    first_names = {w["workout_name"] for w in first_page}
+    second_names = {w["workout_name"] for w in second_page}
+    assert first_names.isdisjoint(second_names)
 
 
 def test_delete_missing_workout_raises():
@@ -194,9 +212,10 @@ def test_remove_favorite_raises_when_not_found():
 def test_create_chat_appears_in_list_chats():
     create_chat("liel", "Leg Day Questions")
 
-    chats = list_chats("liel")
+    chats, total = list_chats("liel")
 
     assert len(chats) == 1
+    assert total == 1
     assert chats[0]["title"] == "Leg Day Questions"
 
 
@@ -236,7 +255,8 @@ def test_rename_chat_updates_title():
 
     rename_chat("liel", chat_id, "New Title")
 
-    assert list_chats("liel")[0]["title"] == "New Title"
+    chats, _ = list_chats("liel")
+    assert chats[0]["title"] == "New Title"
 
 
 def test_rename_chat_raises_for_missing_chat():

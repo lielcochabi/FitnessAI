@@ -1,6 +1,6 @@
 import logging
 import uuid
-from fastapi import FastAPI, HTTPException, Depends, Request
+from fastapi import FastAPI, HTTPException, Depends, Request, Query
 from pydantic import BaseModel
 from contextlib import asynccontextmanager
 from slowapi import Limiter, _rate_limit_exceeded_handler
@@ -159,10 +159,14 @@ def create_workout(req: WorkoutCreate, current_user: str = Depends(get_current_u
 
 
 @app.get("/workouts")
-def list_workouts(current_user: str = Depends(get_current_user)):
+def list_workouts(
+    current_user: str = Depends(get_current_user),
+    limit: int = Query(50, ge=1, le=100),
+    skip: int = Query(0, ge=0),
+):
     try:
-        workouts = get_all_workouts(current_user)
-        return {"workouts": workouts}
+        workouts, total = get_all_workouts(current_user, limit=limit, skip=skip)
+        return {"workouts": workouts, "total": total, "limit": limit, "skip": skip}
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -201,10 +205,14 @@ def add_favorite(req: FavoriteCreate, current_user: str = Depends(get_current_us
 
 
 @app.get("/favorites")
-def list_favorites(current_user: str = Depends(get_current_user)):
+def list_favorites(
+    current_user: str = Depends(get_current_user),
+    limit: int = Query(50, ge=1, le=100),
+    skip: int = Query(0, ge=0),
+):
     try:
-        favorites = get_favorite_exercises(current_user)
-        return {"favorites": favorites}
+        favorites, total = get_favorite_exercises(current_user, limit=limit, skip=skip)
+        return {"favorites": favorites, "total": total, "limit": limit, "skip": skip}
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -243,10 +251,14 @@ def create_new_chat(req: ChatCreate, current_user: str = Depends(get_current_use
 
 
 @app.get("/chats")
-def get_chats(current_user: str = Depends(get_current_user)):
+def get_chats(
+    current_user: str = Depends(get_current_user),
+    limit: int = Query(50, ge=1, le=100),
+    skip: int = Query(0, ge=0),
+):
     try:
-        chats = list_chats(current_user)
-        return {"chats": chats}
+        chats, total = list_chats(current_user, limit=limit, skip=skip)
+        return {"chats": chats, "total": total, "limit": limit, "skip": skip}
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 

@@ -95,6 +95,42 @@ def test_workout_full_crud_flow():
     assert delete_resp.status_code == 200
 
 
+def test_workouts_pagination_via_api():
+    with TestClient(app) as client:
+        session_id = _signup_and_login(client)
+        headers = {"Authorization": f"Bearer {session_id}"}
+
+        for i in range(3):
+            client.post(
+                "/workouts",
+                json={"workout_name": f"Workout {i}", "workout_data": {}},
+                headers=headers,
+            )
+
+        page = client.get("/workouts", params={"limit": 2, "skip": 2}, headers=headers)
+
+    body = page.json()
+    assert page.status_code == 200
+    assert body["total"] == 3
+    assert body["limit"] == 2
+    assert body["skip"] == 2
+    assert len(body["workouts"]) == 1
+
+
+def test_pagination_rejects_invalid_params():
+    with TestClient(app) as client:
+        session_id = _signup_and_login(client)
+        headers = {"Authorization": f"Bearer {session_id}"}
+
+        zero_limit = client.get("/workouts", params={"limit": 0}, headers=headers)
+        huge_limit = client.get("/chats", params={"limit": 500}, headers=headers)
+        negative_skip = client.get("/favorites", params={"skip": -1}, headers=headers)
+
+    assert zero_limit.status_code == 422
+    assert huge_limit.status_code == 422
+    assert negative_skip.status_code == 422
+
+
 def test_logout_invalidates_session():
     with TestClient(app) as client:
         session_id = _signup_and_login(client)

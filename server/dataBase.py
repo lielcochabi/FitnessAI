@@ -187,13 +187,19 @@ def get_workout_by_name(workout_name, username):
     return workout
 
 
-def get_all_workouts(username):
+def get_all_workouts(username, limit=50, skip=0):
     username = username.strip()
-    workouts = workouts_collection.find(
-        {"username": username},
-        {"_id": 0, "workout_name": 1, "workout_data": 1}
+    workouts = (
+        workouts_collection.find(
+            {"username": username},
+            {"_id": 0, "workout_name": 1, "workout_data": 1}
+        )
+        .sort("_id", 1)
+        .skip(skip)
+        .limit(limit)
     )
-    return list(workouts)
+    total = workouts_collection.count_documents({"username": username})
+    return list(workouts), total
 
 
 def delete_workout(workout_name, username):
@@ -230,13 +236,19 @@ def add_favorite_exercise(username, exercise_name, exercise_data):
     return "Exercise " + exercise_name + " added to favorites successfully"
 
 
-def get_favorite_exercises(username):
+def get_favorite_exercises(username, limit=50, skip=0):
     username = username.strip()
-    favorites = favorites_collection.find(
-        {"username": username},
-        {"_id": 0, "exercise_id": 1, "exercise_name": 1, "exercise_data": 1}
+    favorites = (
+        favorites_collection.find(
+            {"username": username},
+            {"_id": 0, "exercise_id": 1, "exercise_name": 1, "exercise_data": 1}
+        )
+        .sort("_id", 1)
+        .skip(skip)
+        .limit(limit)
     )
-    return list(favorites)
+    total = favorites_collection.count_documents({"username": username})
+    return list(favorites), total
 
 
 def remove_favorite_exercise(username, exercise_name):
@@ -265,12 +277,18 @@ def create_chat(username: str, title: str = ""):
     res = chat_history_collection.insert_one(doc)
     return str(res.inserted_id)
 
-def list_chats(username: str):
+def list_chats(username: str, limit=50, skip=0):
     username = username.strip()
-    chats = chat_history_collection.find(
-        {"username": username},
-        {"title": 1, "created_at": 1, "updated_at": 1}
-    ).sort("updated_at", -1)
+    chats = (
+        chat_history_collection.find(
+            {"username": username},
+            {"title": 1, "created_at": 1, "updated_at": 1}
+        )
+        .sort([("updated_at", -1), ("_id", -1)])
+        .skip(skip)
+        .limit(limit)
+    )
+    total = chat_history_collection.count_documents({"username": username})
 
     out = []
     for c in chats:
@@ -280,7 +298,7 @@ def list_chats(username: str):
             "created_at": c.get("created_at"),
             "updated_at": c.get("updated_at"),
         })
-    return out
+    return out, total
 
 
 def add_message(username: str, chat_id: str, role: str, message: str):
